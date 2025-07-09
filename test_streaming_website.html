@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XTTS Network Streaming Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 200px;
+            gap: 20px;
+            align-items: end;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            min-height: 50px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .audio-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .audio-controls audio {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .connection-test {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .status-indicator.connected {
+            background: #28a745;
+        }
+
+        .speaker-info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #1565c0;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 XTTS Network Streaming Test</h1>
+            <p>Test your XTTS server's network streaming capabilities</p>
+        </div>
+        
+        <div class="content">
+            <!-- Connection Test -->
+            <div class="connection-test">
+                <div class="connection-status">
+                    <div class="status-indicator" id="connectionIndicator"></div>
+                    <strong>Server Connection:</strong>
+                    <span id="connectionStatus">Testing...</span>
+                </div>
+                <div class="form-group">
+                    <label for="serverUrl">Server URL:</label>
+                    <input type="text" id="serverUrl" value="http://localhost:8020" placeholder="http://your-server-ip:8020">
+                </div>
+                                    <button class="btn" onclick="testConnection()">Test Connection</button>
+                    <button class="btn secondary" onclick="checkConfig()" style="margin-left: 10px;">Check Config</button>
+            </div>
+
+            <!-- TTS Form -->
+            <form id="ttsForm" onsubmit="playTTS(event)">
+                <div class="form-group">
+                    <label for="textInput">Text to Speech:</label>
+                    <textarea id="textInput" placeholder="Enter the text you want to convert to speech..." required>Hello! This is a test of XTTS network streaming. If you can hear this on a different computer than the server, then network streaming is working perfectly!</textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="speakerSelect">Speaker Voice:</label>
+                        <select id="speakerSelect">
+                            <option value="female.wav">female.wav</option>
+                            <option value="male.wav">male.wav</option>
+                            <option value="calm_female.wav">calm_female.wav</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="languageSelect">Language:</label>
+                        <select id="languageSelect">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="it">Italian</option>
+                            <option value="pt">Portuguese</option>
+                            <option value="pl">Polish</option>
+                            <option value="tr">Turkish</option>
+                            <option value="ru">Russian</option>
+                            <option value="nl">Dutch</option>
+                            <option value="cs">Czech</option>
+                            <option value="ar">Arabic</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="hu">Hungarian</option>
+                            <option value="ko">Korean</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="playBtn">
+                        🎵 Play TTS (Streaming)
+                    </button>
+                    
+                    <button type="button" class="btn secondary" onclick="playTTSFallback()" style="margin-left: 10px;">
+                        🎵 Try Non-Streaming
+                    </button>
+                </div>
+            </form>
+
+            <div class="speaker-info" id="speakerInfo" style="display: none;">
+                <strong>Available Speakers:</strong> <span id="availableSpeakers">Loading...</span>
+            </div>
+
+            <!-- Status Messages -->
+            <div class="status" id="statusMessage"></div>
+            
+            <!-- Audio Player -->
+            <div class="audio-controls" id="audioControls" style="display: none;">
+                <audio controls id="audioPlayer">
+                    Your browser does not support audio playback.
+                </audio>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAudioUrl = null;
+
+        // Test server connection
+        async function testConnection() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const indicator = document.getElementById('connectionIndicator');
+            const status = document.getElementById('connectionStatus');
+            
+            status.textContent = 'Testing...';
+            indicator.className = 'status-indicator';
+            
+            try {
+                const response = await fetch(`${serverUrl}/docs`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    status.textContent = 'Connected ✅';
+                    indicator.className = 'status-indicator connected';
+                    
+                    // Load available speakers
+                    loadSpeakers(serverUrl);
+                    showStatus('Server connection successful!', 'success');
+                } else {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+            } catch (error) {
+                status.textContent = 'Connection Failed ❌';
+                indicator.className = 'status-indicator';
+                showStatus(`Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Load available speakers
+        async function loadSpeakers(serverUrl) {
+            try {
+                const response = await fetch(`${serverUrl}/speakers`);
+                if (response.ok) {
+                    const speakers = await response.json();
+                    const speakerSelect = document.getElementById('speakerSelect');
+                    const speakerInfo = document.getElementById('speakerInfo');
+                    const availableSpeakers = document.getElementById('availableSpeakers');
+                    
+                    console.log('Raw speakers response:', speakers);
+                    
+                    // Clear existing options
+                    speakerSelect.innerHTML = '';
+                    
+                    // Handle different response formats - speakers might be objects or strings
+                    let speakerList = [];
+                    if (Array.isArray(speakers)) {
+                        speakerList = speakers.map(speaker => {
+                            if (typeof speaker === 'string') {
+                                return speaker;
+                            } else if (speaker && typeof speaker === 'object') {
+                                // Extract speaker name from object
+                                return speaker.name || speaker.speaker_wav || speaker.filename || Object.values(speaker)[0] || 'Unknown';
+                            }
+                            return String(speaker);
+                        });
+                    } else if (speakers && typeof speakers === 'object') {
+                        // If speakers is an object, try to extract values
+                        speakerList = Object.values(speakers).map(speaker => {
+                            if (typeof speaker === 'string') {
+                                return speaker;
+                            }
+                            return String(speaker);
+                        });
+                    }
+                    
+                    console.log('Processed speaker list:', speakerList);
+                    
+                    // Add available speakers
+                    speakerList.forEach(speaker => {
+                        const option = document.createElement('option');
+                        option.value = speaker;
+                        option.textContent = speaker;
+                        speakerSelect.appendChild(option);
+                    });
+                    
+                    // Show speaker info
+                    availableSpeakers.textContent = speakerList.join(', ');
+                    speakerInfo.style.display = 'block';
+                }
+            } catch (error) {
+                console.warn('Could not load speakers:', error);
+                // Add default speakers as fallback
+                const speakerSelect = document.getElementById('speakerSelect');
+                speakerSelect.innerHTML = `
+                    <option value="female.wav">female.wav</option>
+                    <option value="male.wav">male.wav</option>
+                    <option value="calm_female.wav">calm_female.wav</option>
+                `;
+            }
+        }
+
+        // Play TTS
+        async function playTTS(event) {
+            event.preventDefault();
+            
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const text = document.getElementById('textInput').value.trim();
+            const speaker = document.getElementById('speakerSelect').value;
+            const language = document.getElementById('languageSelect').value;
+            const playBtn = document.getElementById('playBtn');
+            
+            if (!text) {
+                showStatus('Please enter some text to convert to speech.', 'error');
+                return;
+            }
+            
+            console.log('TTS Request:', { text, speaker, language, serverUrl });
+            
+            // Update UI
+            playBtn.disabled = true;
+            playBtn.textContent = '🔄 Generating...';
+            showStatus('Generating speech... This may take a few seconds.', 'info');
+            
+            // Clean up previous audio
+            if (currentAudioUrl) {
+                URL.revokeObjectURL(currentAudioUrl);
+                currentAudioUrl = null;
+            }
+            
+            try {
+                const startTime = Date.now();
+                const requestBody = {
+                    text: text,
+                    speaker_wav: speaker,
+                    language: language
+                };
+                
+                console.log('Sending request body:', requestBody);
+                
+                // Use the new network streaming endpoint
+                const response = await fetch(`${serverUrl}/tts_to_audio_stream/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: AbortSignal.timeout(30000) // 30 second timeout
+                });
+                
+                console.log('Response status:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    // Try to get error details from response
+                    let errorDetail = `${response.status} - ${response.statusText}`;
+                    try {
+                        const errorText = await response.text();
+                        console.log('Error response:', errorText);
+                        if (errorText) {
+                            const errorJson = JSON.parse(errorText);
+                            errorDetail = errorJson.detail || errorDetail;
+                        }
+                    } catch (e) {
+                        console.log('Could not parse error response');
+                    }
+                    throw new Error(`Server error: ${errorDetail}`);
+                }
+                
+                const audioBlob = await response.blob();
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                
+                console.log('Audio blob received:', audioBlob.size, 'bytes');
+                
+                // Create audio URL and play
+                currentAudioUrl = URL.createObjectURL(audioBlob);
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioControls = document.getElementById('audioControls');
+                
+                audioPlayer.src = currentAudioUrl;
+                audioControls.style.display = 'block';
+                
+                // Auto-play the audio
+                try {
+                    await audioPlayer.play();
+                    showStatus(`✅ Speech generated successfully in ${duration}s! Audio is playing on THIS device.`, 'success');
+                } catch (playError) {
+                    showStatus(`✅ Speech generated in ${duration}s! Click play button below to hear it.`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('TTS Error:', error);
+                if (error.message.includes('400')) {
+                    showStatus(`❌ Bad Request: The server rejected the request. Check that streaming mode is enabled on the server (STREAM_MODE_IMPROVE=true).`, 'error');
+                } else {
+                    showStatus(`❌ Error: ${error.message}`, 'error');
+                }
+            } finally {
+                // Reset button
+                playBtn.disabled = false;
+                playBtn.textContent = '🎵 Play TTS';
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Fallback TTS using regular endpoint (non-streaming)
+        async function playTTSFallback() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const text = document.getElementById('textInput').value.trim();
+            const speaker = document.getElementById('speakerSelect').value;
+            const language = document.getElementById('languageSelect').value;
+            
+            if (!text) {
+                showStatus('Please enter some text to convert to speech.', 'error');
+                return;
+            }
+            
+            try {
+                // In network streaming mode, this button should also use the streaming endpoint
+                // for a fair comparison and to ensure it works.
+                showStatus('Using streaming endpoint for non-streaming test...', 'info');
+                
+                const startTime = Date.now();
+                const response = await fetch(`${serverUrl}/tts_to_audio_stream/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        speaker_wav: speaker,
+                        language: language
+                    }),
+                    signal: AbortSignal.timeout(30000)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const audioBlob = await response.blob();
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                
+                // Clean up previous audio
+                if (currentAudioUrl) {
+                    URL.revokeObjectURL(currentAudioUrl);
+                }
+                
+                // Create audio URL and play
+                currentAudioUrl = URL.createObjectURL(audioBlob);
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioControls = document.getElementById('audioControls');
+                
+                audioPlayer.src = currentAudioUrl;
+                audioControls.style.display = 'block';
+                
+                // Auto-play the audio
+                try {
+                    await audioPlayer.play();
+                    showStatus(`✅ Non-streaming test generated in ${duration}s! (using streaming endpoint)`, 'success');
+                } catch (playError) {
+                    showStatus(`✅ Non-streaming test generated in ${duration}s! Click play button below.`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('Fallback TTS Error:', error);
+                showStatus(`❌ Fallback failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Check server configuration
+        async function checkConfig() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            
+            try {
+                showStatus('Checking server configuration...', 'info');
+                const response = await fetch(`${serverUrl}/debug/config`);
+                
+                if (response.ok) {
+                    const config = await response.json();
+                    console.log('Server config:', config);
+                    
+                    let statusMessage = '📋 Server Configuration:\n\n';
+                    statusMessage += `🎵 Streaming Mode: ${config.streaming_config.streaming_enabled ? '✅ ENABLED' : '❌ DISABLED'}\n`;
+                    statusMessage += `   • STREAM_MODE: ${config.streaming_config.STREAM_MODE}\n`;
+                    statusMessage += `   • STREAM_MODE_IMPROVE: ${config.streaming_config.STREAM_MODE_IMPROVE}\n\n`;
+                    statusMessage += `🖥️  Server: ${config.server_config.BASE_URL || 'default'}\n`;
+                    statusMessage += `🔧 Device: ${config.server_config.DEVICE}\n`;
+                    statusMessage += `💾 Model: ${config.server_config.MODEL_VERSION}\n`;
+                    statusMessage += `⚡ DeepSpeed: ${config.server_config.DEEPSPEED}\n`;
+                    statusMessage += `🧠 Low VRAM: ${config.server_config.LOWVRAM_MODE}\n\n`;
+                    statusMessage += `🌍 Languages: ${config.supported_languages.length} supported\n`;
+                    statusMessage += `🎭 Endpoints: ${config.available_endpoints.length} available`;
+                    
+                    if (!config.streaming_config.streaming_enabled) {
+                        statusMessage += '\n\n⚠️  FIX NEEDED: Streaming is disabled!\nRestart server with STREAM_MODE_IMPROVE=true';
+                    }
+                    
+                    alert(statusMessage);
+                    
+                    if (config.streaming_config.streaming_enabled) {
+                        showStatus('✅ Server configuration looks good! Streaming is enabled.', 'success');
+                    } else {
+                        showStatus('❌ Streaming is disabled. Set STREAM_MODE_IMPROVE=true and restart server.', 'error');
+                    }
+                } else {
+                    throw new Error(`Config check failed: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Config check error:', error);
+                showStatus(`❌ Could not check server config: ${error.message}`, 'error');
+            }
+        }
+
+        // Test connection on page load
+        window.onload = function() {
+            testConnection();
+        };
+
+        // Update server URL when typing
+        document.getElementById('serverUrl').addEventListener('input', function() {
+            const indicator = document.getElementById('connectionIndicator');
+            const status = document.getElementById('connectionStatus');
+            
+            status.textContent = 'Not tested';
+            indicator.className = 'status-indicator';
+            document.getElementById('speakerInfo').style.display = 'none';
+        });
+    </script>
+</body>
+</html> 

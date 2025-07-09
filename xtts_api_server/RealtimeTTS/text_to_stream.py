@@ -60,8 +60,34 @@ class TextToAudioStream:
 
         self._create_iterators()
 
-        logging.info(f"Initializing tokenizer {tokenizer} for language {language}")
-        s2s.init_tokenizer(tokenizer, language)
+        # Initialize the tokenizer just once per (tokenizer, language) pair.  
+        # Re-initialising Stanza in multiple threads causes the mysterious
+        # "context has already been set" runtime error that was breaking
+        # network streaming requests.  We therefore guard the initialisation
+        # with a process-wide lock and a registry of already-initialised
+        # tokenizers.
+
+        from threading import Lock
+
+        _tokenizer_lock: "Lock | None" = getattr(s2s, "_xtts_tokenizer_lock", None)
+        if _tokenizer_lock is None:
+            _tokenizer_lock = Lock()
+            # stash on the module so every future import shares the same lock
+            setattr(s2s, "_xtts_tokenizer_lock", _tokenizer_lock)
+
+        _initialised: "set[str] | None" = getattr(s2s, "_xtts_initialised_tokenizers", None)
+        if _initialised is None:
+            _initialised = set()
+            setattr(s2s, "_xtts_initialised_tokenizers", _initialised)
+
+        key = f"{tokenizer}:{language}"
+        with _tokenizer_lock:
+            if key not in _initialised:
+                logging.info(f"Initializing tokenizer {tokenizer} for language {language}")
+                s2s.init_tokenizer(tokenizer, language)
+                _initialised.add(key)
+            else:
+                logging.debug(f"Tokenizer {tokenizer}/{language} already initialised – skipping")
         
         # Initialize the play_thread attribute (used for playing audio in a separate thread)
         self.play_thread = None
@@ -83,6 +109,9 @@ class TextToAudioStream:
             self.engines = [engine]        
 
         self.load_engine(self.engines[self.engine_index])
+
+        # Ensure the requested tokenizer is initialised exactly once.
+        self._ensure_tokenizer(self.tokenizer, self.language)
 
 
     def load_engine(self, 
@@ -193,6 +222,9 @@ class TextToAudioStream:
 
         tokenizer = tokenizer if tokenizer else self.tokenizer 
         language = language if language else self.language
+
+        # Ensure the requested tokenizer is initialised exactly once.
+        self._ensure_tokenizer(tokenizer, language)
 
         # Set the stream_running flag to indicate the stream is active
         self.stream_start_time = time.time()
@@ -578,3 +610,32 @@ class TextToAudioStream:
             
             # Yield the remaining synthesis_chunk
             yield synthesis_chunk
+
+    def _ensure_tokenizer(self, tokenizer: str, language: str):
+        """Initialise the requested stream2sentence tokenizer once per process.
+
+        This is a thin wrapper around the locking logic added in __init__ so
+        that we can reuse it whenever *play()* is invoked with a different
+        tokenizer (e.g. "stanza" instead of the default "nltk").
+        """
+
+        from threading import Lock
+
+        _tokenizer_lock: "Lock | None" = getattr(s2s, "_xtts_tokenizer_lock", None)
+        if _tokenizer_lock is None:
+            _tokenizer_lock = Lock()
+            setattr(s2s, "_xtts_tokenizer_lock", _tokenizer_lock)
+
+        _initialised: "set[str] | None" = getattr(s2s, "_xtts_initialised_tokenizers", None)
+        if _initialised is None:
+            _initialised = set()
+            setattr(s2s, "_xtts_initialised_tokenizers", _initialised)
+
+        key = f"{tokenizer}:{language}"
+        with _tokenizer_lock:
+            if key not in _initialised:
+                logging.info(f"Initializing tokenizer {tokenizer} for language {language}")
+                s2s.init_tokenizer(tokenizer, language)
+                _initialised.add(key)
+            else:
+                logging.debug(f"Tokenizer {tokenizer}/{language} already initialised – skipping")

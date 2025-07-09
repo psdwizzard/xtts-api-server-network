@@ -45,4 +45,5 @@ os.environ["STREAM_PLAY_SYNC"] = str(args.stream_play_sync).lower() # Enable Str
 
 from xtts_api_server.server import app
 
-uvicorn.run(app, host=host_ip, port=args.port)
+if __name__ == "__main__":
+    uvicorn.run(app, host=host_ip, port=args.port)

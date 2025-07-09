@@ -80,7 +80,6 @@ class CoquiEngine(BaseEngine):
         self.prepare_text_for_synthesis_callback = prepare_text_for_synthesis_callback
 
         # Start the worker process
-        set_start_method('spawn')
         self.main_synthesize_ready_event = Event()
         self.parent_synthesize_pipe, child_synthesize_pipe = Pipe()
         self.voices_path = voices_path
