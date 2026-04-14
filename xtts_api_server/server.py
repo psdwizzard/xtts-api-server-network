@@ -8,6 +8,7 @@ import uvicorn
 
 import os
 import time
+import asyncio
 from pathlib import Path
 import shutil
 from loguru import logger
@@ -43,6 +44,7 @@ if(DEEPSPEED):
 # Create an instance of the TTSWrapper class and server
 app = FastAPI()
 XTTS = TTSWrapper(OUTPUT_FOLDER,SPEAKER_FOLDER,MODEL_FOLDER,LOWVRAM_MODE,MODEL_SOURCE,MODEL_VERSION,DEVICE,DEEPSPEED,USE_CACHE)
+network_stream_lock = asyncio.Lock()
 
 # Check for old format model version
 XTTS.model_version = XTTS.check_model_version_old_format(MODEL_VERSION)
@@ -110,6 +112,23 @@ def play_stream(stream,language):
       stream.play()
     else:
       stream.play_async()
+
+def get_stream_play_kwargs(language, on_audio_chunk=None, muted=False):
+    play_args = {
+        "muted": muted,
+        "on_audio_chunk": on_audio_chunk,
+    }
+
+    if STREAM_MODE_IMPROVE:
+        play_args.update({
+            "minimum_sentence_length": 2,
+            "minimum_first_fragment_length": 2,
+            "tokenizer": "stanza",
+            "language": language,
+            "context_size": 2,
+        })
+
+    return play_args
 
 class OutputFolderRequest(BaseModel):
     output_folder: str
@@ -247,6 +266,71 @@ async def tts_stream(request: Request, text: str = Query(), speaker_wav: str = Q
             if disconnected:
                 break
             yield chunk
+
+    return StreamingResponse(generator(), media_type='audio/x-wav')
+
+@app.post("/tts_to_audio_stream/")
+async def tts_to_audio_stream(request: Request, synthesis: SynthesisRequest):
+    if not (STREAM_MODE or STREAM_MODE_IMPROVE):
+        raise HTTPException(status_code=400,
+                            detail="Remote audio streaming endpoint requires --streaming-mode or --streaming-mode-improve.")
+
+    if synthesis.language.lower() not in supported_languages:
+        raise HTTPException(status_code=400,
+                            detail="Language code sent is either unsupported or misspelled.")
+
+    async def generator():
+        async with network_stream_lock:
+            chunk_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+            loop = asyncio.get_running_loop()
+
+            def on_audio_chunk(chunk: bytes):
+                loop.call_soon_threadsafe(chunk_queue.put_nowait, chunk)
+
+            def on_audio_stream_stop():
+                loop.call_soon_threadsafe(chunk_queue.put_nowait, None)
+
+            speaker_wav = XTTS.get_speaker_wav(synthesis.speaker_wav)
+            engine.set_voice(speaker_wav)
+            engine.language = synthesis.language.lower()
+
+            request_stream = TextToAudioStream(
+                engine,
+                on_audio_stream_stop=on_audio_stream_stop,
+            )
+
+            format_info = engine.get_stream_info()
+            channels = format_info[1]
+            sample_rate = format_info[2]
+
+            request_stream.feed(synthesis.text)
+            request_stream.play_async(
+                **get_stream_play_kwargs(
+                    synthesis.language.lower(),
+                    on_audio_chunk=on_audio_chunk,
+                    muted=True,
+                )
+            )
+
+            yield XTTS.get_wav_header(channels=channels, sample_rate=sample_rate, width=2)
+
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+
+                    try:
+                        chunk = await asyncio.wait_for(chunk_queue.get(), timeout=0.5)
+                    except TimeoutError:
+                        continue
+
+                    if chunk is None:
+                        break
+
+                    yield chunk
+            finally:
+                if request_stream.is_playing():
+                    request_stream.stop()
 
     return StreamingResponse(generator(), media_type='audio/x-wav')
 
