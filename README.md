@@ -4,6 +4,8 @@ This project is inspired by [silero-api-server](https://github.com/ouoertheo/sil
 
 This server was created for [SillyTavern](https://github.com/SillyTavern/SillyTavern) but you can use it for your needs
 
+This fork also supports relay-style deployments where a reverse proxy or Cloudflare-backed app forwards XTTS requests for remote clients.
+
 Feel free to make PRs or use the code for your own needs
 
 There's a [google collab version](https://colab.research.google.com/drive/1b-X3q5miwYLVMuiH_T73odMO8cbtICEY?usp=sharing) you can use it if your computer is weak.
@@ -18,6 +20,21 @@ You can keep track of all changes on the [release page](https://github.com/daswe
 
 ## TODO
 - [x] Make it possible to change generation parameters through the generation request and through a different endpoint
+
+## Cloudflare Relay Support
+
+You can use this server in two ways:
+
+- `Direct LAN`: clients call the XTTS server directly at `http://YOUR_SERVER_IP:8020`
+- `Cloudflare Relay`: clients call your public relay URL, and the relay forwards requests to this XTTS server
+
+For relay deployments, the most relevant endpoints are:
+
+- `GET /speakers`
+- `POST /tts_to_audio_remote/`
+- `POST /tts_to_audio_stream/`
+
+`/tts_to_audio_remote/` is a compatibility endpoint for reverse proxies and relay layers that want a stable file-style synthesis route for remote clients.
 
 ## Installation
 
@@ -160,6 +177,24 @@ Improved streaming mode is suitable for complex languages such as Chinese, Japan
 # API Docs
 
 API Docs can be accessed from [http://localhost:8020/docs](http://localhost:8020/docs)
+
+## Common Relay Patterns
+
+### Direct LAN
+
+The client talks to XTTS directly:
+
+- `GET http://YOUR_SERVER_IP:8020/speakers`
+- `POST http://YOUR_SERVER_IP:8020/tts_to_audio/`
+
+### Cloudflare Relay
+
+The client talks to your public Cloudflare URL, and that relay forwards to XTTS:
+
+- `GET https://YOUR_CLOUDFLARE_URL/api/tts/speakers`
+- `POST https://YOUR_CLOUDFLARE_URL/api/tts/synthesize`
+
+In that setup, your relay layer can map `/api/tts/synthesize` to XTTS's `/tts_to_audio_remote/` endpoint.
 
 # How to add speaker
 

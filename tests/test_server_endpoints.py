@@ -73,6 +73,18 @@ def test_tts_to_audio_non_streaming():
     assert response.headers['Content-Type'] == 'audio/wav'
     assert len(response.content) > 1000 
 
+def test_tts_to_audio_remote_non_streaming():
+    """Tests the relay compatibility TTS endpoint."""
+    payload = {
+        "text": "Hello, this is a relay compatibility test.",
+        "speaker_wav": SPEAKER_NAME,
+        "language": "en"
+    }
+    response = requests.post(f"{BASE_URL}/tts_to_audio_remote/", json=payload)
+    assert response.status_code == 200
+    assert response.headers['Content-Type'] == 'audio/wav'
+    assert len(response.content) > 1000
+
 def test_tts_to_audio_stream():
     """Tests the network streaming TTS endpoint."""
     payload = {

@@ -320,8 +320,7 @@ async def tts_stream(request: Request, text: str = Query(), speaker_wav: str = Q
 
     return StreamingResponse(generator(), media_type='audio/x-wav')
 
-@app.post("/tts_to_audio/")
-async def tts_to_audio(request: SynthesisRequest, background_tasks: BackgroundTasks):
+async def synthesize_audio_file(request: SynthesisRequest, background_tasks: BackgroundTasks):
     # If streaming is enabled, handle the request in a streaming manner
     if STREAM_MODE or STREAM_MODE_IMPROVE:
         try:
@@ -382,6 +381,18 @@ async def tts_to_audio(request: SynthesisRequest, background_tasks: BackgroundTa
     except Exception as e:
         logger.error(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.post("/tts_to_audio/")
+async def tts_to_audio(request: SynthesisRequest, background_tasks: BackgroundTasks):
+    return await synthesize_audio_file(request, background_tasks)
+
+@app.post("/tts_to_audio_remote/")
+async def tts_to_audio_remote(request: SynthesisRequest, background_tasks: BackgroundTasks):
+    """
+    Compatibility endpoint for reverse proxies and relay layers that expect a
+    remote-safe synthesis route returning an audio file response.
+    """
+    return await synthesize_audio_file(request, background_tasks)
 
 @app.post("/tts_to_file")
 async def tts_to_file(request: SynthesisFileRequest):

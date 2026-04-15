@@ -134,6 +134,10 @@ curl http://YOUR_SERVER_IP:8020/docs
 
 ### Update your Chrome extension to use network streaming:
 
+You can use either direct LAN access or a Cloudflare-backed relay in front of this server.
+
+#### Option A: Direct LAN
+
 1. **Replace the server URL** in your extension:
    ```javascript
    const serverUrl = 'http://YOUR_SERVER_IP:8020';  // Replace YOUR_SERVER_IP
@@ -152,6 +156,21 @@ curl http://YOUR_SERVER_IP:8020/docs
        })
    });
    ```
+
+#### Option B: Cloudflare Relay
+
+If you have a relay app or reverse proxy in front of XTTS, point the extension at your public Cloudflare URL instead:
+
+```javascript
+const relayUrl = 'https://YOUR_CLOUDFLARE_URL';
+```
+
+Your relay can expose:
+
+- `GET /api/tts/speakers` -> XTTS `/speakers`
+- `POST /api/tts/synthesize` -> XTTS `/tts_to_audio_remote/`
+
+This keeps the XTTS server private while still letting remote clients synthesize audio through Cloudflare.
 
 3. **Handle the streaming response**:
    ```javascript
